@@ -7,9 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .guess-list::-webkit-scrollbar { width: 8px; }
-        .guess-list::-webkit-scrollbar-track { background: #f1f1f1; }
-        .guess-list::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
         .animate-pop { animation: pop 0.3s ease-out; }
         @keyframes pop {
             0% { transform: scale(0.9); opacity: 0; }
@@ -23,12 +20,12 @@
         .toast-enter { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans text-gray-800 relative">
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800 relative pb-10">
 
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-4 left-0 right-0 z-[60] flex flex-col items-center gap-2 pointer-events-none"></div>
 
-    <div id="app" class="max-w-2xl mx-auto p-4 flex flex-col h-screen">
+    <div id="app" class="max-w-2xl mx-auto p-4 flex flex-col">
         
         <!-- Header -->
         <header class="text-center mb-6">
@@ -41,7 +38,7 @@
             <div class="text-center">
                 <i class="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
                 <p class="mt-2 font-medium">Consulting the Archives...</p>
-                <p class="text-xs text-gray-500 mt-1" id="loading-text">Finding a globally recognized topic...</p>
+                <p class="text-xs text-gray-500 mt-1" id="loading-text">Analyzing global traffic charts...</p>
             </div>
         </div>
 
@@ -50,51 +47,77 @@
             <h2 class="text-2xl font-bold text-green-700 mb-2">🎉 You Found It!</h2>
             <p class="text-lg">The article was <strong id="reveal-title"></strong></p>
             <p class="text-sm text-green-600 mt-2" id="win-stats"></p>
-            <button onclick="initGame()" class="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
-                Play Again
-            </button>
+            
+            <a id="wiki-link" href="#" target="_blank" class="inline-block mt-3 text-green-700 underline font-medium hover:text-green-800">
+                Read full article on Wikipedia <i class="fas fa-external-link-alt text-xs"></i>
+            </a>
+
+            <div class="mt-4">
+                <button onclick="initGame()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition shadow-md">
+                    Play Again
+                </button>
+            </div>
         </div>
 
         <!-- Hints Section -->
-        <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-200 shrink-0">
+        <div class="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-200">
             <h3 class="font-bold text-gray-700 mb-3"><i class="far fa-lightbulb text-yellow-500"></i> Archive Notes</h3>
             
-            <!-- Default Summary (Always Visible) -->
-            <div id="summary-display" class="mb-4 text-sm text-gray-700 bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400 italic leading-relaxed max-h-40 overflow-y-auto">
-                Loading redacted summary...
+            <!-- Default Hint (Context Clue) -->
+            <div class="mb-1">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Initial Clue</span>
+            </div>
+            <div id="context-display" class="mb-4 text-sm text-gray-700 bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400 italic leading-relaxed">
+                Loading clue...
             </div>
 
-            <div class="flex justify-between items-center mb-2 border-t pt-3 border-gray-100">
-                <span class="text-xs text-gray-400" id="hint-status">0/2 Extra Hints Used</span>
+            <div class="flex justify-between items-center mb-3 border-t pt-3 border-gray-100">
+                <span class="text-xs text-gray-400" id="hint-status">0/4 Extra Hints Used</span>
             </div>
             
-            <div class="grid grid-cols-2 gap-3">
-                <button id="btn-hint-1" onclick="revealHint(1)" class="text-sm bg-indigo-50 text-indigo-700 py-2 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
-                    <i class="fas fa-tags"></i> Unlock Categories
+            <!-- Hint Buttons Grid -->
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button id="btn-hint-0" onclick="revealHint(0)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-align-left"></i> Expand Clue
                 </button>
-                <button id="btn-hint-2" onclick="revealHint(2)" class="text-sm bg-indigo-50 text-indigo-700 py-2 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
-                    <i class="fas fa-image"></i> Unlock Image
+                <button id="btn-hint-1" onclick="revealHint(1)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-file-alt"></i> Reveal Summary
+                </button>
+                <button id="btn-hint-2" onclick="revealHint(2)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-tags"></i> Reveal Categories
+                </button>
+                <button id="btn-hint-3" onclick="revealHint(3)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-image"></i> Reveal Image
                 </button>
             </div>
 
-            <div class="mt-3 text-center">
+            <div class="text-center mb-2">
                 <button id="give-up-btn" onclick="giveUp()" class="text-xs text-red-400 hover:text-red-600 underline decoration-dotted transition-colors">I give up, show me the answer</button>
             </div>
 
-            <!-- Hint Outputs -->
-            <div id="hint-display-1" class="hidden mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded border-l-4 border-indigo-400"></div>
-            
-            <div id="hint-display-2" class="hidden mt-3 flex justify-center p-3 bg-gray-50 rounded border border-gray-200">
-                <div class="relative">
-                    <!-- Reduced height to prevent covering history -->
-                    <img id="hint-image" src="" class="max-h-32 rounded shadow-sm object-contain" alt="Article Hint">
-                    <p class="text-xs text-center text-gray-400 mt-1 italic">Image from article</p>
+            <!-- Dynamic Hint Outputs -->
+            <div class="space-y-3">
+                <!-- Summary Hint Output -->
+                <div id="hint-display-1" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400">
+                    <span class="block text-xs font-bold text-indigo-400 mb-1">REDACTED SUMMARY</span>
+                    <span id="summary-text"></span>
+                </div>
+
+                <!-- Categories Hint Output -->
+                <div id="hint-display-2" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400"></div>
+                
+                <!-- Image Hint Output -->
+                <div id="hint-display-3" class="hidden flex justify-center p-4 bg-gray-50 rounded border border-gray-200">
+                    <div class="relative w-full text-center">
+                        <img id="hint-image" src="" class="max-h-80 w-auto mx-auto rounded shadow-sm object-contain" alt="Article Hint">
+                        <p class="text-xs text-center text-gray-400 mt-2 italic">Image from article</p>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Search Input -->
-        <div class="relative mb-6 z-20 shrink-0">
+        <div class="relative mb-6 z-20">
             <div class="relative">
                 <input type="text" id="search-input" 
                     class="w-full p-4 pl-12 rounded-xl shadow-lg border-2 border-transparent focus:border-indigo-500 focus:outline-none text-lg transition" 
@@ -110,12 +133,12 @@
         </div>
 
         <!-- Guesses List -->
-        <div class="flex-1 overflow-hidden flex flex-col bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="flex-col bg-white rounded-xl shadow-sm border border-gray-200">
             <div class="p-3 border-b border-gray-100 bg-gray-50 font-medium text-gray-500 text-sm flex justify-between">
                 <span>Guess History</span>
                 <span id="guess-count">0 guesses</span>
             </div>
-            <div id="guesses-container" class="flex-1 overflow-y-auto p-4 space-y-3 guess-list">
+            <div id="guesses-container" class="p-4 space-y-3">
                 <!-- Guesses injected here -->
                 <div id="empty-state" class="text-center text-gray-400 py-10">
                     <i class="fas fa-arrow-up mb-2"></i>
@@ -133,7 +156,9 @@
         let targetLinks = new Set();
         let targetCategories = [];
         let targetSummary = "";
+        let targetContextData = { sentence: "", full: "" }; 
         let targetImage = null;
+        let targetUrl = "";
         let guesses = [];
         let hintsUnlocked = 0;
         let isGameOver = false;
@@ -165,15 +190,19 @@
             winTitle.classList.add('text-green-700');
 
             document.getElementById('search-input').disabled = false;
-            document.getElementById('btn-hint-1').disabled = false;
-            document.getElementById('btn-hint-1').classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-100', 'text-gray-400');
-            document.getElementById('btn-hint-1').classList.add('bg-indigo-50', 'text-indigo-700');
             
-            document.getElementById('btn-hint-2').disabled = false;
-            document.getElementById('btn-hint-2').innerHTML = '<i class="fas fa-image"></i> Unlock Image';
-            document.getElementById('btn-hint-2').classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-100', 'text-gray-400');
-            document.getElementById('btn-hint-2').classList.add('bg-indigo-50', 'text-indigo-700');
+            // Reset Hint Buttons
+            ['btn-hint-0', 'btn-hint-1', 'btn-hint-2', 'btn-hint-3'].forEach(id => {
+                const btn = document.getElementById(id);
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-100', 'text-gray-400');
+                btn.classList.add('bg-indigo-50', 'text-indigo-700');
+            });
             
+            // Explicitly Reset Button Text
+            document.getElementById('btn-hint-0').innerHTML = '<i class="fas fa-align-left"></i> Expand Clue';
+            document.getElementById('btn-hint-3').innerHTML = '<i class="fas fa-image"></i> Reveal Image';
+
             // Reset Give Up Button
             const giveUpBtn = document.getElementById('give-up-btn');
             giveUpBtn.innerText = "I give up, show me the answer";
@@ -182,9 +211,10 @@
 
             document.getElementById('hint-display-1').classList.add('hidden');
             document.getElementById('hint-display-2').classList.add('hidden');
-            document.getElementById('hint-status').innerText = "0/2 Extra Hints Used";
+            document.getElementById('hint-display-3').classList.add('hidden');
+            document.getElementById('hint-status').innerText = "0/4 Extra Hints Used";
             document.getElementById('guess-count').innerText = "0 guesses";
-            document.getElementById('summary-display').innerText = "Loading redacted summary...";
+            document.getElementById('context-display').innerText = "Loading clue...";
 
             toggleLoading(true);
 
@@ -199,20 +229,39 @@
                 targetArticle = data.title;
                 targetLinks = new Set(data.links || []);
                 targetCategories = data.categories || [];
-                targetSummary = data.extract || "No summary available.";
+                targetSummary = data.summary || "No summary available.";
                 targetImage = data.image;
+                targetUrl = data.url;
+                
+                // Process Context Clue
+                targetContextData = processContextClue(data.fullText, data.title);
 
                 console.log("Target (Shh!):", targetArticle);
 
-                // Show default redacted summary immediately
-                renderRedactedSummary();
+                // Show context immediately
+                document.getElementById('context-display').innerText = targetContextData.sentence;
 
-                // Check if image exists for hint 2
+                // --- SPOILER PROTECTION: Smart Image Filter ---
+                if (targetImage) {
+                    // Split title into "Significant Words" (Length > 5)
+                    // Increased threshold to 5 to avoid blocking on words like "Flag" or "Rock"
+                    const significantWords = targetArticle.toLowerCase().split(/[\s-]+/).filter(w => w.length > 5);
+                    const imageSrcLower = targetImage.toLowerCase();
+                    
+                    const isSpoiler = significantWords.some(word => imageSrcLower.includes(word));
+                    
+                    if (isSpoiler) {
+                        console.log("Spoiler image detected (strict filter), removing:", targetImage);
+                        targetImage = null; 
+                    }
+                }
+
+                // Update Image Button State based on availability/spoiler status
+                const btn3 = document.getElementById('btn-hint-3');
                 if (!targetImage) {
-                    const btn2 = document.getElementById('btn-hint-2');
-                    btn2.disabled = true;
-                    btn2.innerHTML = '<i class="fas fa-image-slash"></i> No Image';
-                    btn2.classList.add('opacity-50', 'cursor-not-allowed');
+                    btn3.disabled = true;
+                    btn3.innerHTML = '<i class="fas fa-image-slash"></i> No Image';
+                    btn3.classList.add('opacity-50', 'cursor-not-allowed');
                 }
 
             } catch (e) {
@@ -226,81 +275,69 @@
         // --- Core Logic ---
 
         async function getRandomArticle() {
-            // "Deep Search" Strategy
-            // We fetch 50 random pages (max reasonable batch) to widen the net.
-            // We then strictly filter for articles that exist in multiple languages (langlinks).
-            // This is the strongest proxy for "Global Notability" available in the public API.
-            
-            const params = new URLSearchParams({
-                action: "query",
-                format: "json",
-                generator: "random",
-                grnnamespace: "0",     // Main namespace only
-                grnlimit: "50",        // Fetch 50 candidates to find the best one
-                prop: "info|pageimages|pageprops|langlinks",
-                inprop: "url",
-                piprop: "thumbnail",
-                pithumbsize: "100",
-                lllimit: "max",        // Get max language links to count accurately
-                origin: "*"
-            });
+            // STRATEGY: Top 1000 Viewed Pages
+            const yesterday = new Date(Date.now() - 2 * 86400000); 
+            const yyyy = yesterday.getFullYear();
+            const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const dd = String(yesterday.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}/${mm}/${dd}`;
+
+            const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${dateStr}`;
 
             try {
-                const res = await fetch(`${API_BASE}?${params.toString()}`);
-                const data = await res.json();
+                document.getElementById('loading-text').innerText = "Analyzing global traffic charts...";
                 
-                if (!data.query || !data.query.pages) {
-                    throw new Error("No pages returned");
-                }
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Pageviews API error");
+                
+                const data = await res.json();
+                const articles = data.items[0].articles;
 
-                const pages = Object.values(data.query.pages);
+                const datePattern = /^(January|February|March|April|May|June|July|August|September|October|November|December)_\d{1,2}$/;
+                const yearPattern = /^\d{4}$/;
 
-                // Filter & Score Candidates
-                const scoredCandidates = pages.map(p => {
-                    const isDisambiguation = p.pageprops && p.pageprops.disambiguation !== undefined;
-                    const isList = p.title.startsWith("List of") || p.title.startsWith("Index of");
-                    const hasImage = p.thumbnail !== undefined;
-                    const langCount = p.langlinks ? p.langlinks.length : 0;
+                const candidates = articles.filter(a => {
+                    const t = a.article;
                     
-                    // Heavy weighting for LangCount (Notability)
-                    // If an article has < 5 languages, it's likely too obscure.
-                    let score = langCount; 
-                    
-                    if (hasImage) score += 10;
-                    
-                    // Penalize lists and disambiguations heavily (essentially remove them)
-                    if (isDisambiguation || isList) score = -999;
+                    // Filter out dates and years
+                    if (datePattern.test(t) || yearPattern.test(t)) return false;
 
-                    return {
-                        title: p.title,
-                        valid: score > 0, // Must have some positive traits
-                        score: score,
-                        langCount: langCount
-                    };
+                    // Filter out titles with Colons (Usually subtitles, episodes, specific events)
+                    // e.g. "Kantara: Chapter 1", "Avengers: Endgame"
+                    if (t.includes(":")) return false;
+
+                    // Filter out long titles (Usually specific news events)
+                    // e.g. "US_Military_strikes_on_venezuelan_cartel_boats"
+                    // Limit to 4 words max.
+                    if (t.split("_").length > 4) return false;
+
+                    return t !== "Main_Page" &&
+                           !t.startsWith("Special:") &&
+                           !t.startsWith("Wikipedia:") &&
+                           !t.startsWith("File:") &&
+                           !t.startsWith("Portal:") &&
+                           !t.startsWith("User:") &&
+                           !t.startsWith("Help:") &&
+                           !t.startsWith("List_of") && 
+                           !t.includes("_(disambiguation)");
                 });
 
-                // Sort by Score (Descending)
-                scoredCandidates.sort((a, b) => b.score - a.score);
-
-                console.log("Top Candidate:", scoredCandidates[0]);
-
-                if (scoredCandidates.length > 0 && scoredCandidates[0].valid) {
-                    return scoredCandidates[0].title;
+                if (candidates.length > 0) {
+                    const randomIdx = Math.floor(Math.random() * candidates.length);
+                    return candidates[randomIdx].article.replace(/_/g, ' '); 
                 } else {
-                    console.log("No valid candidates found in batch, retrying...");
-                    return getRandomArticle(); // Recursion if batch was full of junk
+                    throw new Error("No candidates found");
                 }
 
             } catch (e) {
-                console.error("Filter failed, retrying...", e);
-                return "The Internet"; // Ultimate fallback
+                console.error("Pageviews fetch failed, falling back...", e);
+                return "The Internet"; 
             }
         }
 
         async function handleGuess(title) {
             if (isGameOver) return;
             
-            // Validate if already guessed
             if (guesses.some(g => g.title.toLowerCase() === title.toLowerCase())) {
                 showToast("You already guessed that!", "error");
                 return;
@@ -316,10 +353,8 @@
                     return;
                 }
 
-                // Calculate Score
                 const result = calculateSimilarity(data.title, data.links);
                 
-                // Add to history
                 const guessObj = {
                     title: data.title,
                     ...result
@@ -329,12 +364,10 @@
                 renderGuess(guessObj);
                 updateStats();
 
-                // Check Win
                 if (result.type === 'win') {
                     triggerWin();
                 }
 
-                // Clear input
                 const searchInput = document.getElementById('search-input');
                 searchInput.value = '';
                 document.getElementById('autocomplete-list').classList.add('hidden');
@@ -388,13 +421,13 @@
             const params = new URLSearchParams({
                 action: "query",
                 format: "json",
-                prop: "links|categories|extracts|pageimages",
+                prop: "links|categories|extracts|pageimages|info",
                 titles: title,
                 pllimit: "max",
                 cllimit: "max",
-                exintro: "1",
-                explaintext: "1",
-                pithumbsize: "400", // Image Width
+                explaintext: "1",      
+                pithumbsize: "600",    
+                inprop: "url",         
                 origin: "*"
             });
 
@@ -407,13 +440,107 @@
             if (pageId === "-1") return null;
 
             const page = pages[pageId];
+            
+            const fullText = page.extract || "";
+            const introEnd = fullText.search(/==[^=]+==/);
+            const summary = introEnd !== -1 ? fullText.substring(0, introEnd).trim() : fullText.substring(0, 500);
+
             return {
                 title: page.title,
                 links: page.links ? page.links.map(l => l.title) : [],
                 categories: page.categories ? page.categories.map(c => c.title.replace("Category:", "")) : [],
-                extract: page.extract,
-                image: page.thumbnail ? page.thumbnail.source : null
+                summary: summary,
+                fullText: fullText,
+                image: page.thumbnail ? page.thumbnail.source : null,
+                url: page.fullurl
             };
+        }
+
+        // --- Text Processing ---
+
+        function processContextClue(fullText, title) {
+            const lines = fullText.split('\n');
+            let foundHeader = false;
+            let contextParagraph = "";
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (line.startsWith("==") && line.endsWith("==")) {
+                    // Check if this header is allowed
+                    const headerText = line.replace(/=/g, '').trim().toLowerCase();
+                    // Skip "Etymology", "Name" sections as they give away the answer
+                    if (headerText.includes("etymology") || headerText.includes("name")) {
+                        foundHeader = false; // Don't capture text from this section
+                    } else {
+                        foundHeader = true;
+                    }
+                    continue;
+                }
+                
+                if (foundHeader && line.length > 50) {
+                    contextParagraph = line;
+                    break;
+                }
+            }
+
+            if (!contextParagraph) {
+                const sentences = fullText.split('. ');
+                if (sentences.length > 1) {
+                    contextParagraph = sentences[1] + ".";
+                } else {
+                    contextParagraph = fullText.substring(0, 100) + "...";
+                }
+            }
+
+            // Create sentence version (Truncated)
+            let sentence = contextParagraph;
+            const periodIndex = contextParagraph.indexOf('. ');
+            if (periodIndex !== -1) {
+                sentence = contextParagraph.substring(0, periodIndex + 1);
+            }
+
+            return {
+                sentence: redactText(sentence, title),
+                full: redactText(contextParagraph, title)
+            };
+        }
+
+        function redactText(text, title) {
+            let censored = text;
+            const titleWords = title.split(/[\s-]+/); 
+            
+            // --- Acronym Generation Logic ---
+            if (titleWords.length > 1) {
+                const acronym = titleWords.map(w => w.charAt(0)).join('');
+                if (acronym.length > 1) titleWords.push(acronym);
+            }
+
+            titleWords.sort((a, b) => b.length - a.length);
+
+            titleWords.forEach(word => {
+                if (word.length > 2) {
+                    // --- ROOT WORD REDACTION LOGIC ---
+                    // For long words (e.g. "Germany"), we want to match words starting with same root (e.g. "Germ")
+                    // This handles "German", "Germanic", "Germania" from "Germany".
+                    let pattern = "";
+                    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    
+                    if (word.length >= 5) {
+                        // Take first 4 chars as root
+                        const root = escapedWord.substring(0, 4);
+                        // Regex: Boundary + Root + any word characters
+                        pattern = `\\b${root}\\w*`;
+                    } else {
+                        // Standard match for short words
+                        pattern = `\\b${escapedWord}\\w*`;
+                    }
+
+                    const regex = new RegExp(pattern, "gi"); 
+                    censored = censored.replace(regex, "█████");
+                }
+            });
+            return censored;
         }
 
         async function searchAutocomplete(term) {
@@ -462,78 +589,74 @@
         }
 
         function renderRedactedSummary() {
-            const display = document.getElementById('summary-display');
-            let censored = targetSummary.substring(0, 250) + "...";
-            
-            const titleWords = targetArticle.split(/[\s-]+/); 
-            titleWords.sort((a, b) => b.length - a.length);
-
-            titleWords.forEach(word => {
-                if (word.length > 2) {
-                    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`\\b${escapedWord}\\b`, "gi"); 
-                    censored = censored.replace(regex, "█████");
-                }
-            });
-
-            display.innerText = censored;
+            const display = document.getElementById('summary-text');
+            const summarySnippet = targetSummary.substring(0, 400) + (targetSummary.length > 400 ? "..." : "");
+            display.innerText = redactText(summarySnippet, targetArticle);
         }
 
         function revealHint(level) {
             hintsUnlocked++;
-            document.getElementById('hint-status').innerText = `${hintsUnlocked}/2 Extra Hints Used`;
+            document.getElementById('hint-status').innerText = `${hintsUnlocked}/4 Extra Hints Used`;
 
-            if (level === 1) {
-                // Reveal Categories
+            const btn = document.getElementById(`btn-hint-${level}`);
+            btn.disabled = true;
+            btn.classList.remove('bg-indigo-50', 'text-indigo-700');
+            btn.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+
+            if (level === 0) {
+                // Expand Clue
+                document.getElementById('context-display').innerText = targetContextData.full;
+            
+            } else if (level === 1) {
+                // Summary
                 const display = document.getElementById('hint-display-1');
+                renderRedactedSummary();
+                display.classList.remove('hidden');
+
+            } else if (level === 2) {
+                // Categories
+                const display = document.getElementById('hint-display-2');
                 
-                // Aggressive filtering for "boring" categories AND spoilers
+                // Aggressive "Stop List" for categories
                 const cleanCats = targetCategories.filter(c => {
                     const lower = c.toLowerCase();
                     const titleLower = targetArticle.toLowerCase();
-
-                    // Filter out category if it contains the article title (Spoiler protection)
                     if (lower.includes(titleLower)) return false;
-
+                    
                     return !lower.includes("articles") && 
                            !lower.includes("pages") && 
-                           !lower.includes("webarchive") &&
-                           !lower.includes("cs1") &&
-                           !lower.includes("wikipedia") &&
-                           !lower.includes("use dmy") &&
-                           !lower.includes("use mdy") &&
-                           !lower.includes("containing") &&
-                           !lower.includes("all stub") &&
-                           !lower.includes("short description");
+                           !lower.includes("webarchive") && 
+                           !lower.includes("cs1") && 
+                           !lower.includes("short description") &&
+                           !lower.includes("disputes") &&      
+                           !lower.includes("verification") &&  
+                           !lower.includes("citations") &&     
+                           !lower.includes("sources") &&       
+                           !lower.includes("introduction") &&  
+                           !lower.includes("cleanup") &&       
+                           !lower.includes("template");        
                 });
 
-                if (cleanCats.length > 0) {
-                    display.innerHTML = `<strong>Categories:</strong> ${cleanCats.slice(0, 5).join(", ")}`;
+                // --- REDACTION FOR CATEGORIES ---
+                // We need to apply the same redaction logic to the category text itself
+                // because categories often contain the target word (e.g. "History of Germany")
+                const safeCats = cleanCats.map(c => redactText(c, targetArticle));
+
+                if (safeCats.length > 0) {
+                    display.innerHTML = `<span class="block text-xs font-bold text-indigo-400 mb-1">CATEGORIES</span> ${safeCats.slice(0, 8).join(", ")}`;
                 } else {
                     display.innerText = "No descriptive categories found.";
                 }
-                
                 display.classList.remove('hidden');
-                
-                const btn = document.getElementById('btn-hint-1');
-                btn.disabled = true;
-                btn.classList.remove('bg-indigo-50', 'text-indigo-700');
-                btn.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
 
-            } else if (level === 2) {
-                // Reveal Image
-                const display = document.getElementById('hint-display-2');
+            } else if (level === 3) {
+                // Image
+                const display = document.getElementById('hint-display-3');
                 const img = document.getElementById('hint-image');
-                
                 if (targetImage) {
                     img.src = targetImage;
                     display.classList.remove('hidden');
                 }
-                
-                const btn = document.getElementById('btn-hint-2');
-                btn.disabled = true;
-                btn.classList.remove('bg-indigo-50', 'text-indigo-700');
-                btn.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
             }
         }
 
@@ -541,22 +664,28 @@
             isGameOver = true;
             document.getElementById('reveal-title').innerText = targetArticle;
             document.getElementById('win-stats').innerText = `Solved in ${guesses.length} guesses!`;
+            
+            const link = document.getElementById('wiki-link');
+            link.href = targetUrl;
+            
             document.getElementById('win-screen').classList.remove('hidden');
             document.getElementById('search-input').disabled = true;
             
+            // Reveal everything
             if(targetImage) {
-                document.getElementById('hint-display-2').classList.remove('hidden');
+                document.getElementById('hint-display-3').classList.remove('hidden');
                 document.getElementById('hint-image').src = targetImage;
             }
-            document.getElementById('summary-display').innerText = targetSummary.substring(0, 500) + "...";
-            document.getElementById('summary-display').classList.remove('italic');
+            const summaryDisplay = document.getElementById('summary-text');
+            summaryDisplay.innerText = targetSummary.substring(0, 600) + "...";
+            document.getElementById('hint-display-1').classList.remove('hidden');
+            
+            // NOTE: We do NOT overwrite context-display anymore so user can see original clue.
         }
 
-        // New Give Up Logic (No Alert/Confirm)
         function giveUp() {
             const btn = document.getElementById('give-up-btn');
             
-            // First Click: Warn
             if (giveUpClickCount === 0) {
                 giveUpClickCount++;
                 btn.innerText = "Are you sure? Click again to confirm.";
@@ -565,10 +694,8 @@
                 return;
             }
 
-            // Second Click: Execute
             triggerWin(); 
             
-            // Override styles for "Game Over" look
             const winScreen = document.getElementById('win-screen');
             winScreen.classList.remove('bg-green-100', 'border-green-500');
             winScreen.classList.add('bg-red-50', 'border-red-200');
@@ -578,10 +705,13 @@
             winTitle.classList.remove('text-green-700');
             winTitle.classList.add('text-red-700');
             
+            const link = document.getElementById('wiki-link');
+            link.classList.remove('text-green-700');
+            link.classList.add('text-red-700', 'hover:text-red-800');
+            
             document.getElementById('win-stats').innerText = "Better luck next time!";
         }
 
-        // --- Custom Toast Notification (Replaces Alert) ---
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -594,7 +724,6 @@
             
             container.appendChild(toast);
 
-            // Remove after 3 seconds
             setTimeout(() => {
                 toast.style.transition = 'all 0.3s ease-in';
                 toast.style.opacity = '0';
