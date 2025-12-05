@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WikiMystery Daily</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for guess list */
+        .guess-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .guess-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .guess-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .animate-pop {
+            animation: pop 0.3s ease-out;
+        }
+        @keyframes pop {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+    <div id="app" class="max-w-2xl mx-auto p-4 flex flex-col h-screen">
+        
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-indigo-600 mb-2"><i class="fas fa-puzzle-piece"></i> WikiMystery</h1>
+            <p class="text-gray-600">Find the secret Wikipedia article!</p>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loading-screen" class="hidden fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
+                <p class="mt-2 font-medium">Consulting the Archives...</p>
+            </div>
+        </div>
+
+        <!-- Game Won State -->
+        <div id="win-screen" class="hidden bg-green-100 border-2 border-green-500 rounded-xl p-6 mb-6 text-center animate-pop">
+            <h2 class="text-2xl font-bold text-green-700 mb-2">🎉 You Found It!</h2>
+            <p class="text-lg">The article was <strong id="reveal-title"></strong></p>
+            <p class="text-sm text-green-600 mt-2" id="win-stats"></p>
+            <button onclick="initGame()" class="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                Play Again
+            </button>
+        </div>
+
+        <!-- Hints Section -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-200">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-gray-700"><i class="far fa-lightbulb text-yellow-500"></i> Hints</h3>
+                <span class="text-xs text-gray-400" id="hint-status">0/2 Used</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-hint-1" onclick="revealHint(1)" class="text-sm bg-indigo-50 text-indigo-700 py-2 rounded border border-indigo-200 hover:bg-indigo-100 transition">
+                    Unlock Summary
+                </button>
+                <button id="btn-hint-2" onclick="revealHint(2)" class="text-sm bg-indigo-50 text-indigo-700 py-2 rounded border border-indigo-200 hover:bg-indigo-100 transition opacity-50 cursor-not-allowed" disabled>
+                    Unlock Categories
+                </button>
+            </div>
+
+            <div id="hint-display-1" class="hidden mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded border-l-4 border-indigo-400 italic"></div>
+            <div id="hint-display-2" class="hidden mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded border-l-4 border-purple-400"></div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative mb-6 z-20">
+            <div class="relative">
+                <input type="text" id="search-input" 
+                    class="w-full p-4 pl-12 rounded-xl shadow-lg border-2 border-transparent focus:border-indigo-500 focus:outline-none text-lg transition" 
+                    placeholder="Search Wikipedia..." 
+                    autocomplete="off">
+                <i class="fas fa-search absolute left-4 top-5 text-gray-400"></i>
+            </div>
+            
+            <!-- Autocomplete Dropdown -->
+            <div id="autocomplete-list" class="absolute w-full bg-white mt-1 rounded-xl shadow-xl border border-gray-100 overflow-hidden hidden max-h-60 overflow-y-auto">
+                <!-- Items injected here -->
+            </div>
+        </div>
+
+        <!-- Guesses List -->
+        <div class="flex-1 overflow-hidden flex flex-col bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="p-3 border-b border-gray-100 bg-gray-50 font-medium text-gray-500 text-sm flex justify-between">
+                <span>Guess History</span>
+                <span id="guess-count">0 guesses</span>
+            </div>
+            <div id="guesses-container" class="flex-1 overflow-y-auto p-4 space-y-3 guess-list">
+                <!-- Guesses injected here -->
+                <div id="empty-state" class="text-center text-gray-400 py-10">
+                    <i class="fas fa-arrow-up mb-2"></i>
+                    <p>Make your first guess!</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Game State ---
+        const API_BASE = "https://en.wikipedia.org/w/api.php";
+        let targetArticle = null;
+        let targetLinks = new Set();
+        let targetCategories = [];
+        let targetSummary = "";
+        let guesses = [];
+        let hintsUnlocked = 0;
+        let isGameOver = false;
+
+        // Curated list for prototype (to ensure solvability)
+        const ARTICLE_POOL = [
+            "The Internet", "Python (programming language)", "Leonardo da Vinci", 
+            "Coffee", "Antarctica", "Mona Lisa", "Albert Einstein", "Pizza",
+            "Moon landing", "Ancient Egypt", "Banana", "Chess", "Tokyo", "Guitar"
+        ];
+
+        // --- Initialization ---
+        window.onload = initGame;
+
+        async function initGame() {
+            // Reset State
+            guesses = [];
+            hintsUnlocked = 0;
+            isGameOver = false;
+            document.getElementById('search-input').value = '';
+            document.getElementById('guesses-container').innerHTML = '<div id="empty-state" class="text-center text-gray-400 py-10"><i class="fas fa-arrow-up mb-2"></i><p>Make your first guess!</p></div>';
+            document.getElementById('win-screen').classList.add('hidden');
+            document.getElementById('search-input').disabled = false;
+            document.getElementById('btn-hint-1').disabled = false;
+            document.getElementById('btn-hint-2').disabled = true;
+            document.getElementById('btn-hint-2').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('hint-display-1').classList.add('hidden');
+            document.getElementById('hint-display-2').classList.add('hidden');
+            document.getElementById('hint-status').innerText = "0/2 Used";
+            document.getElementById('guess-count').innerText = "0 guesses";
+
+            toggleLoading(true);
+
+            // 1. Pick Random Article
+            const randomTitle = ARTICLE_POOL[Math.floor(Math.random() * ARTICLE_POOL.length)];
+            
+            // 2. Fetch Target Data (Links, Categories, Extract)
+            // We use 'origin=*' for CORS support on Wikipedia API
+            try {
+                const data = await fetchWikiData(randomTitle);
+                if (!data) throw new Error("Failed to load target");
+
+                targetArticle = data.title;
+                targetLinks = new Set(data.links || []);
+                targetCategories = data.categories || [];
+                targetSummary = data.extract || "No summary available.";
+
+                console.log("Target (Shh!):", targetArticle);
+            } catch (e) {
+                alert("Error starting game. Please reload.");
+                console.error(e);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // --- Core Logic ---
+
+        async function handleGuess(title) {
+            if (isGameOver) return;
+            
+            // Validate if already guessed
+            if (guesses.some(g => g.title.toLowerCase() === title.toLowerCase())) {
+                alert("You already guessed that!");
+                return;
+            }
+
+            toggleLoading(true);
+            
+            try {
+                const data = await fetchWikiData(title);
+                if (!data) {
+                    alert("Article not found!");
+                    toggleLoading(false);
+                    return;
+                }
+
+                // Calculate Score
+                const result = calculateSimilarity(data.title, data.links);
+                
+                // Add to history
+                const guessObj = {
+                    title: data.title,
+                    ...result
+                };
+                guesses.unshift(guessObj);
+                
+                renderGuess(guessObj);
+                updateStats();
+
+                // Check Win
+                if (result.type === 'win') {
+                    triggerWin();
+                }
+
+                // Clear input
+                const searchInput = document.getElementById('search-input');
+                searchInput.value = '';
+                document.getElementById('autocomplete-list').classList.add('hidden');
+
+            } catch (e) {
+                console.error(e);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        function calculateSimilarity(guessTitle, guessLinksArr) {
+            // 1. Exact Match
+            if (guessTitle.toLowerCase() === targetArticle.toLowerCase()) {
+                return { score: 100, message: "Correct!", color: "bg-green-500", type: 'win' };
+            }
+
+            const guessLinks = new Set(guessLinksArr);
+
+            // 2. Direct Link
+            // Target links to Guess OR Guess links to Target
+            const targetLinksToGuess = targetLinks.has(guessTitle);
+            const guessLinksToTarget = guessLinks.has(targetArticle);
+
+            if (targetLinksToGuess || guessLinksToTarget) {
+                return { score: 85, message: "Direct Link!", color: "bg-orange-500", type: 'close' };
+            }
+
+            // 3. Jaccard Similarity (Shared Links)
+            const intersection = new Set([...targetLinks].filter(x => guessLinks.has(x)));
+            const union = new Set([...targetLinks, ...guessLinks]);
+            
+            let jaccard = 0;
+            if (union.size > 0) {
+                jaccard = intersection.size / union.size;
+            }
+
+            // Boost score for display (Jaccard is usually very small, e.g., 0.05 is good)
+            let displayScore = Math.min(Math.round(jaccard * 1000), 70); 
+            
+            let message = `${intersection.size} shared links`;
+            let color = "bg-blue-500";
+
+            if (intersection.size === 0) {
+                message = "No connection";
+                color = "bg-gray-400";
+                displayScore = 5;
+            }
+
+            return { score: displayScore, message: message, color: color, type: 'normal' };
+        }
+
+        // --- Wikipedia API Helper ---
+        
+        async function fetchWikiData(title) {
+            const params = new URLSearchParams({
+                action: "query",
+                format: "json",
+                prop: "links|categories|extracts",
+                titles: title,
+                pllimit: "max", // Get up to 500 links
+                cllimit: "max",
+                exintro: "1",   // Only intro text
+                explaintext: "1", // Plain text, no HTML
+                origin: "*"     // CORS fix
+            });
+
+            const res = await fetch(`${API_BASE}?${params.toString()}`);
+            const data = await res.json();
+            
+            const pages = data.query.pages;
+            const pageId = Object.keys(pages)[0];
+            
+            if (pageId === "-1") return null;
+
+            const page = pages[pageId];
+            return {
+                title: page.title,
+                links: page.links ? page.links.map(l => l.title) : [],
+                categories: page.categories ? page.categories.map(c => c.title.replace("Category:", "")) : [],
+                extract: page.extract
+            };
+        }
+
+        async function searchAutocomplete(term) {
+            if (term.length < 2) return [];
+            
+            const params = new URLSearchParams({
+                action: "opensearch",
+                search: term,
+                limit: "5",
+                namespace: "0",
+                format: "json",
+                origin: "*"
+            });
+
+            const res = await fetch(`${API_BASE}?${params.toString()}`);
+            const data = await res.json();
+            // opensearch returns [term, [titles], [descriptions], [urls]]
+            return data[1]; 
+        }
+
+        // --- UI Rendering ---
+
+        function renderGuess(guess) {
+            const container = document.getElementById('guesses-container');
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.remove();
+
+            const div = document.createElement('div');
+            div.className = "bg-white p-3 rounded-lg border border-gray-200 shadow-sm animate-pop flex items-center justify-between";
+            div.innerHTML = `
+                <div class="flex-1">
+                    <div class="font-bold text-gray-800">${guess.title}</div>
+                    <div class="text-xs text-gray-500">${guess.message}</div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full ${guess.color}" style="width: ${guess.score}%"></div>
+                    </div>
+                    <span class="text-sm font-bold w-8 text-right">${guess.score}%</span>
+                </div>
+            `;
+            container.prepend(div);
+        }
+
+        function updateStats() {
+            document.getElementById('guess-count').innerText = `${guesses.length} guess${guesses.length !== 1 ? 'es' : ''}`;
+        }
+
+        function revealHint(level) {
+            if (hintsUnlocked >= level) return;
+            hintsUnlocked = level;
+
+            if (level === 1) {
+                const display = document.getElementById('hint-display-1');
+                const btn2 = document.getElementById('btn-hint-2');
+                
+                // Redact summary
+                let censored = targetSummary.substring(0, 200) + "...";
+                // Simple case-insensitive replace of title words
+                const titleWords = targetArticle.split(" ");
+                titleWords.forEach(word => {
+                    if (word.length > 2) {
+                        const regex = new RegExp(word, "gi");
+                        censored = censored.replace(regex, "█████");
+                    }
+                });
+
+                display.innerText = censored;
+                display.classList.remove('hidden');
+                
+                // Enable button 2
+                btn2.disabled = false;
+                btn2.classList.remove('opacity-50', 'cursor-not-allowed');
+                document.getElementById('btn-hint-1').classList.add('bg-gray-100', 'text-gray-400');
+            } else if (level === 2) {
+                const display = document.getElementById('hint-display-2');
+                const cleanCats = targetCategories.filter(c => !c.includes("articles") && !c.includes("pages"));
+                display.innerText = "Categories: " + cleanCats.slice(0, 5).join(", ");
+                display.classList.remove('hidden');
+                document.getElementById('btn-hint-2').classList.add('bg-gray-100', 'text-gray-400');
+            }
+            
+            document.getElementById('hint-status').innerText = `${hintsUnlocked}/2 Used`;
+        }
+
+        function triggerWin() {
+            isGameOver = true;
+            document.getElementById('reveal-title').innerText = targetArticle;
+            document.getElementById('win-stats').innerText = `Solved in ${guesses.length} guesses!`;
+            document.getElementById('win-screen').classList.remove('hidden');
+            document.getElementById('search-input').disabled = true;
+        }
+
+        function toggleLoading(show) {
+            const el = document.getElementById('loading-screen');
+            if (show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        // --- Event Listeners ---
+
+        const searchInput = document.getElementById('search-input');
+        const autoList = document.getElementById('autocomplete-list');
+
+        // Debounce search
+        let timeout = null;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(timeout);
+            const term = e.target.value;
+            
+            if (term.length < 2) {
+                autoList.classList.add('hidden');
+                return;
+            }
+
+            timeout = setTimeout(async () => {
+                const results = await searchAutocomplete(term);
+                if (results.length > 0) {
+                    autoList.innerHTML = results.map(r => 
+                        `<div class="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100" onclick="selectSuggestion('${r.replace(/'/g, "\\'")}')">${r}</div>`
+                    ).join('');
+                    autoList.classList.remove('hidden');
+                } else {
+                    autoList.classList.add('hidden');
+                }
+            }, 300);
+        });
+
+        // Hide dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !autoList.contains(e.target)) {
+                autoList.classList.add('hidden');
+            }
+        });
+
+        // Handle Enter key
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && searchInput.value) {
+                handleGuess(searchInput.value);
+                autoList.classList.add('hidden');
+            }
+        });
+
+        window.selectSuggestion = (title) => {
+            searchInput.value = title;
+            autoList.classList.add('hidden');
+            handleGuess(title);
+        };
+
+    </script>
+</body>
+</html>
