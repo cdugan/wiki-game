@@ -6,6 +6,104 @@
     <title>WikiGuess Daily</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIGURATION ---
+        // IF HOSTING YOURSELF: Replace the object below with your own Firebase Config from the Firebase Console.
+        let firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Environment check for the previewer (Ignore this if hosting yourself)
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+        }
+
+        // Initialize Firebase
+        let db, auth, appId;
+        let isFirebaseReady = false;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'wikiguess-default';
+            
+            // Auth Flow
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    isFirebaseReady = true;
+                    console.log("Firebase Connected");
+                    // Load stats once auth is ready
+                    window.loadDailyStats(); 
+                } catch (e) {
+                    console.error("Auth Failed", e);
+                }
+            };
+            initAuth();
+        } catch (e) {
+            console.warn("Firebase not configured. Stats will be local only.");
+        }
+
+        // --- GLOBAL STATS FUNCTIONS ---
+        
+        window.savePlayerScore = async (score, mode) => {
+            if (!isFirebaseReady || mode !== 'daily') return;
+            
+            const dateKey = window.getDailySeedDate();
+            const collectionName = `scores_${dateKey}`;
+            
+            try {
+                // Strict Path Rule: /artifacts/{appId}/public/data/{collectionName}
+                const scoreCollection = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+                await addDoc(scoreCollection, {
+                    score: score,
+                    timestamp: Date.now()
+                });
+                console.log("Score saved to global stats");
+                await window.loadDailyStats(); // Refresh stats to show new data
+            } catch (e) {
+                console.error("Error saving score:", e);
+            }
+        };
+
+        window.loadDailyStats = async () => {
+            if (!isFirebaseReady) return;
+
+            const dateKey = window.getDailySeedDate();
+            const collectionName = `scores_${dateKey}`;
+            
+            try {
+                const scoreCollection = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+                const snapshot = await getDocs(scoreCollection); // Simple query rule
+                
+                const scores = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.score !== undefined) scores.push(data.score);
+                });
+
+                window.renderStatsChart(scores);
+            } catch (e) {
+                console.error("Error loading stats:", e);
+            }
+        };
+
+    </script>
     <style>
         .animate-pop { animation: pop 0.3s ease-out; }
         @keyframes pop {
@@ -22,6 +120,8 @@
             0% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(-20px); opacity: 0; }
         }
+        /* Stats Bar Animation */
+        .stat-bar { transition: height 1s ease-out; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800 relative pb-10">
@@ -70,6 +170,20 @@
             <a id="wiki-link" href="#" target="_blank" class="inline-block mt-4 text-green-700 underline font-medium hover:text-green-900 transition bg-green-50 px-3 py-1 rounded border border-green-200">
                 Read on Wikipedia <i class="fas fa-external-link-alt text-xs ml-1"></i>
             </a>
+
+            <!-- Stats Section (Daily Only) -->
+            <div id="daily-stats-container" class="mt-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200 hidden">
+                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Today's Global Scores</h3>
+                <div class="flex items-end justify-between h-24 gap-1" id="stats-bars">
+                    <!-- Bars injected by JS -->
+                    <div class="text-xs text-gray-400 w-full text-center py-8">Loading stats...</div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1 px-1 font-mono">
+                    <span>0</span>
+                    <span>50</span>
+                    <span>100</span>
+                </div>
+            </div>
 
             <div class="mt-6 border-t border-green-200 pt-4">
                 <button id="play-next-btn" onclick="startInfiniteMode()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition shadow-md font-bold w-full sm:w-auto">
@@ -279,6 +393,10 @@
                 if (el) el.classList.add('hidden');
             });
 
+            // Hide Stats Container if visible
+            const statsContainer = document.getElementById('daily-stats-container');
+            if (statsContainer) statsContainer.classList.add('hidden');
+
             safeSetText('hint-status', "0/4 Extra Hints Used");
             safeSetText('guess-count', "0 guesses");
             safeSetText('context-display', "Loading clue...");
@@ -351,16 +469,74 @@
             }
         }
 
+        // --- Stats Rendering ---
+        window.renderStatsChart = (scores) => {
+            const container = document.getElementById('stats-bars');
+            const wrapper = document.getElementById('daily-stats-container');
+            if (!container || !wrapper) return;
+
+            // Don't show for infinite mode or empty scores
+            if (currentGameMode !== 'daily') {
+                wrapper.classList.add('hidden');
+                return;
+            }
+
+            wrapper.classList.remove('hidden');
+            
+            // Calculate distribution
+            // Buckets: 0-10, 11-20, ... 91-100 (basically 10 buckets)
+            const buckets = new Array(10).fill(0);
+            
+            scores.forEach(s => {
+                // 100 -> bucket 9 (index 9)
+                // 0 -> bucket 0
+                // 85 -> index 8
+                let index = Math.floor((s - 1) / 10);
+                if (s === 0) index = 0;
+                if (s === 100) index = 9;
+                if (index < 0) index = 0;
+                buckets[index]++;
+            });
+
+            const maxVal = Math.max(...buckets, 1); // Prevent div/0
+
+            // Generate HTML bars
+            let html = '';
+            buckets.forEach((count, i) => {
+                const heightPct = (count / maxVal) * 100;
+                // Highlight the user's score bucket
+                const isUserBucket = (currentScore > 0 && Math.floor((currentScore - 1) / 10) === i) || (currentScore === 0 && i === 0) || (currentScore === 100 && i === 9);
+                
+                const colorClass = isUserBucket ? 'bg-indigo-500' : 'bg-gray-300';
+                
+                html += `
+                    <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+                        <div class="w-full ${colorClass} rounded-t-sm stat-bar min-h-[4px]" style="height: ${heightPct}%"></div>
+                        <!-- Tooltip -->
+                        <div class="absolute -top-8 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                            ${count} players
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        };
+
+        window.getDailySeedDate = () => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        };
+
         // --- Daily Puzzle Logic (Seeded RNG) ---
 
         async function getDailyArticle() {
             // 1. Get standardized date string (YYYYMMDD) as seed
             // Use local date to ensure "today" is correct for the user
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const seedDate = `${year}${month}${day}`;
+            const seedDate = window.getDailySeedDate();
             const seedInt = parseInt(seedDate);
 
             // 2. Fetch Top 1000 list from Yesterday (Static source)
@@ -883,6 +1059,12 @@
             safeSetText('reveal-title', targetArticle);
             safeSetText('win-stats', `Solved in ${guesses.length} guesses!`);
             safeSetText('final-score-display', `Final Score: ${currentScore}`);
+            
+            // Save Score to Global DB (if daily mode)
+            if (currentGameMode === 'daily') {
+                window.savePlayerScore(currentScore, currentGameMode);
+            }
+
             const link = document.getElementById('wiki-link');
             if (link) link.href = targetUrl;
             const winScreen = document.getElementById('win-screen');
@@ -958,6 +1140,26 @@
             const el = document.getElementById('loading-screen');
             if (show) el.classList.remove('hidden');
             else el.classList.add('hidden');
+        }
+
+        // --- Event Listeners ---
+        
+        // ADDED MISSING SEARCH AUTOCOMPLETE
+        async function searchAutocomplete(term) {
+            if (term.length < 2) return [];
+            
+            const params = new URLSearchParams({
+                action: "opensearch",
+                search: term,
+                limit: "5",
+                namespace: "0",
+                format: "json",
+                origin: "*"
+            });
+
+            const res = await fetch(`${API_BASE}?${params.toString()}`);
+            const data = await res.json();
+            return data[1]; 
         }
 
         const searchInput = document.getElementById('search-input');
