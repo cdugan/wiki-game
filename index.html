@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WikiMystery Daily</title>
+    <title>WikiGuess Daily</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -33,39 +33,49 @@
         
         <!-- Header -->
         <header class="text-center mb-4">
-            <h1 class="text-4xl font-bold text-indigo-600 mb-1"><i class="fas fa-puzzle-piece"></i> WikiMystery</h1>
-            <div class="flex justify-center items-center gap-4">
-                <p class="text-gray-600 text-sm">Find the secret Wikipedia article!</p>
-                <div class="bg-indigo-100 px-3 py-1 rounded-full text-indigo-800 font-bold text-sm border border-indigo-200">
+            <h1 class="text-4xl font-bold text-indigo-600 mb-1 tracking-tight">
+                <i class="fas fa-globe-americas"></i> WikiGuess
+            </h1>
+            
+            <div class="flex flex-col items-center gap-2">
+                <div class="flex items-center gap-2">
+                    <span id="mode-badge" class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700 border border-yellow-200">
+                        Daily Puzzle
+                    </span>
+                    <span id="date-badge" class="text-xs text-gray-400 font-mono"></span>
+                </div>
+                
+                <div class="bg-indigo-100 px-4 py-1 rounded-full text-indigo-800 font-bold text-sm border border-indigo-200 shadow-sm mt-1">
                     Score: <span id="score-display">100</span>
                 </div>
             </div>
         </header>
 
         <!-- Loading State -->
-        <div id="loading-screen" class="hidden fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
+        <div id="loading-screen" class="hidden fixed inset-0 bg-white/90 z-50 flex items-center justify-center backdrop-blur-sm">
             <div class="text-center">
                 <i class="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
-                <p class="mt-2 font-medium">Consulting the Archives...</p>
-                <p class="text-xs text-gray-500 mt-1" id="loading-text">Analyzing global traffic charts...</p>
+                <p class="mt-3 font-medium text-lg text-gray-700">Consulting the Archives...</p>
+                <p class="text-xs text-gray-500 mt-1 font-mono" id="loading-text">Initializing...</p>
             </div>
         </div>
 
         <!-- Game Won State -->
-        <div id="win-screen" class="hidden bg-green-100 border-2 border-green-500 rounded-xl p-6 mb-6 text-center animate-pop">
+        <div id="win-screen" class="hidden bg-green-100 border-2 border-green-500 rounded-xl p-6 mb-6 text-center animate-pop shadow-lg relative z-30">
             <h2 class="text-2xl font-bold text-green-700 mb-2">🎉 You Found It!</h2>
-            <p class="text-lg">The article was <strong id="reveal-title"></strong></p>
-            <p class="text-lg font-bold text-indigo-700 mt-1" id="final-score-display"></p>
+            <p class="text-lg">The article was <strong id="reveal-title" class="text-gray-900"></strong></p>
+            <p class="text-xl font-bold text-indigo-700 mt-2" id="final-score-display"></p>
             <p class="text-sm text-green-600 mt-1" id="win-stats"></p>
             
-            <a id="wiki-link" href="#" target="_blank" class="inline-block mt-3 text-green-700 underline font-medium hover:text-green-800">
-                Read full article on Wikipedia <i class="fas fa-external-link-alt text-xs"></i>
+            <a id="wiki-link" href="#" target="_blank" class="inline-block mt-4 text-green-700 underline font-medium hover:text-green-900 transition bg-green-50 px-3 py-1 rounded border border-green-200">
+                Read on Wikipedia <i class="fas fa-external-link-alt text-xs ml-1"></i>
             </a>
 
-            <div class="mt-4">
-                <button onclick="initGame()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition shadow-md">
-                    Play Again
+            <div class="mt-6 border-t border-green-200 pt-4">
+                <button id="play-next-btn" onclick="startInfiniteMode()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition shadow-md font-bold w-full sm:w-auto">
+                    Play Infinite Mode <i class="fas fa-arrow-right ml-2"></i>
                 </button>
+                <p class="text-xs text-gray-500 mt-2 italic" id="daily-complete-msg">Daily Puzzle Complete! Continue for random articles.</p>
             </div>
         </div>
 
@@ -74,64 +84,66 @@
             <!-- Score Float Animation Container -->
             <div id="score-float-container" class="absolute top-2 right-2 pointer-events-none"></div>
 
-            <h3 class="font-bold text-gray-700 mb-3"><i class="far fa-lightbulb text-yellow-500"></i> Archive Notes</h3>
+            <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <i class="far fa-lightbulb text-yellow-500"></i> Archive Notes
+            </h3>
             
             <!-- Default Hint (Context Clue) -->
-            <div class="mb-1">
+            <div class="mb-1 flex justify-between items-end">
                 <span class="text-xs font-bold text-gray-400 uppercase tracking-wide">Initial Clue</span>
             </div>
-            <div id="context-display" class="mb-4 text-sm text-gray-700 bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400 italic leading-relaxed">
+            <div id="context-display" class="mb-4 text-sm text-gray-700 bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400 italic leading-relaxed shadow-sm">
                 Loading clue...
             </div>
             
             <!-- Hint Buttons Grid (Sorted by Cost) -->
             <div class="grid grid-cols-2 gap-2 mb-4">
                 <!-- 1. Categories (-10) -->
-                <button id="btn-hint-cat" onclick="revealHint('cat', 10)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 group">
+                <button id="btn-hint-cat" onclick="revealHint('cat', 10)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded-lg border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition flex flex-col items-center justify-center gap-1 group">
                     <span class="font-semibold"><i class="fas fa-tags"></i> Categories</span>
-                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium">-10 pts</span>
+                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium bg-white px-1.5 rounded border border-indigo-100">-10 pts</span>
                 </button>
                 
                 <!-- 2. Expand Clue (-20) -->
-                <button id="btn-hint-exp" onclick="revealHint('exp', 20)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 group">
+                <button id="btn-hint-exp" onclick="revealHint('exp', 20)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded-lg border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition flex flex-col items-center justify-center gap-1 group">
                     <span class="font-semibold"><i class="fas fa-align-left"></i> Expand Clue</span>
-                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium">-20 pts</span>
+                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium bg-white px-1.5 rounded border border-indigo-100">-20 pts</span>
                 </button>
                 
                 <!-- 3. Summary (-30) -->
-                <button id="btn-hint-sum" onclick="revealHint('sum', 30)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 group">
+                <button id="btn-hint-sum" onclick="revealHint('sum', 30)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded-lg border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition flex flex-col items-center justify-center gap-1 group">
                     <span class="font-semibold"><i class="fas fa-file-alt"></i> Reveal Summary</span>
-                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium">-30 pts</span>
+                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium bg-white px-1.5 rounded border border-indigo-100">-30 pts</span>
                 </button>
                 
                 <!-- 4. Image (-30) -->
-                <button id="btn-hint-img" onclick="revealHint('img', 30)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded border border-indigo-200 hover:bg-indigo-100 transition flex flex-col items-center justify-center gap-1 group">
+                <button id="btn-hint-img" onclick="revealHint('img', 30)" class="text-sm bg-indigo-50 text-indigo-700 py-3 px-3 rounded-lg border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition flex flex-col items-center justify-center gap-1 group">
                     <span class="font-semibold"><i class="fas fa-image"></i> Reveal Image</span>
-                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium">-30 pts</span>
+                    <span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium bg-white px-1.5 rounded border border-indigo-100">-30 pts</span>
                 </button>
             </div>
 
-            <div class="flex justify-between items-center mb-2 border-t pt-2 border-gray-100">
+            <div class="flex justify-between items-center mb-2 border-t pt-3 border-gray-100">
                 <span class="text-xs text-gray-400" id="hint-status">0/4 Extra Hints Used</span>
             </div>
 
             <div class="text-center mb-2">
-                <button id="give-up-btn" onclick="giveUp()" class="text-xs text-red-400 hover:text-red-600 underline decoration-dotted transition-colors">I give up, show me the answer</button>
+                <button id="give-up-btn" onclick="giveUp()" class="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors">I give up, show me the answer</button>
             </div>
 
             <!-- Dynamic Hint Outputs -->
             <div class="space-y-3">
                 <!-- Summary Hint Output -->
-                <div id="hint-display-sum" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400">
+                <div id="hint-display-sum" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400 animate-pop">
                     <span class="block text-xs font-bold text-indigo-400 mb-1">REDACTED SUMMARY</span>
                     <span id="summary-text"></span>
                 </div>
 
                 <!-- Categories Hint Output -->
-                <div id="hint-display-cat" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400"></div>
+                <div id="hint-display-cat" class="hidden text-sm text-gray-600 bg-gray-50 p-4 rounded border-l-4 border-indigo-400 animate-pop"></div>
                 
                 <!-- Image Hint Output -->
-                <div id="hint-display-img" class="hidden flex justify-center p-4 bg-gray-50 rounded border border-gray-200">
+                <div id="hint-display-img" class="hidden flex justify-center p-4 bg-gray-50 rounded border border-gray-200 animate-pop">
                     <div class="relative w-full text-center">
                         <img id="hint-image" src="" class="max-h-80 w-auto mx-auto rounded shadow-sm object-contain" alt="Article Hint">
                         <p class="text-xs text-center text-gray-400 mt-2 italic">Image from article</p>
@@ -142,9 +154,13 @@
 
         <!-- Search Input -->
         <div class="relative mb-6 z-20">
-            <label class="block text-xs font-bold text-gray-500 mb-1 ml-2 uppercase tracking-wide">
-                Make a Guess <span class="text-red-500">(-5 pts each)</span>
-            </label>
+            <div class="flex justify-between items-end mb-1 ml-1 mr-1">
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">
+                    Make a Guess
+                </label>
+                <span class="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">-5 pts each</span>
+            </div>
+            
             <div class="relative">
                 <input type="text" id="search-input" 
                     class="w-full p-4 pl-12 rounded-xl shadow-lg border-2 border-transparent focus:border-indigo-500 focus:outline-none text-lg transition" 
@@ -154,7 +170,7 @@
             </div>
             
             <!-- Autocomplete Dropdown -->
-            <div id="autocomplete-list" class="absolute w-full bg-white mt-1 rounded-xl shadow-xl border border-gray-100 overflow-hidden hidden max-h-60 overflow-y-auto">
+            <div id="autocomplete-list" class="absolute w-full bg-white mt-1 rounded-xl shadow-xl border border-gray-100 overflow-hidden hidden max-h-60 overflow-y-auto z-50">
                 <!-- Items injected here -->
             </div>
         </div>
@@ -165,7 +181,7 @@
                 <span>Guess History</span>
                 <span id="guess-count">0 guesses</span>
             </div>
-            <div id="guesses-container" class="p-4 space-y-3">
+            <div id="guesses-container" class="p-4 space-y-3 max-h-[500px] overflow-y-auto">
                 <!-- Guesses injected here -->
                 <div id="empty-state" class="text-center text-gray-400 py-10">
                     <i class="fas fa-arrow-up mb-2"></i>
@@ -179,6 +195,7 @@
     <script>
         // --- Game State ---
         const API_BASE = "https://en.wikipedia.org/w/api.php";
+        let currentGameMode = 'daily'; // 'daily' or 'infinite'
         let targetArticle = null;
         let targetLinks = new Set();
         let targetCategories = [];
@@ -193,41 +210,49 @@
         let currentScore = 100;
 
         // --- Initialization ---
-        window.onload = initGame;
+        window.onload = () => initGame('daily'); // Start in daily mode
 
-        async function initGame() {
+        function startInfiniteMode() {
+            initGame('infinite');
+        }
+
+        async function initGame(mode) {
             // Reset State
+            currentGameMode = mode;
             guesses = [];
             hintsUnlocked.clear();
             isGameOver = false;
             giveUpClickCount = 0;
             currentScore = 100;
-            updateScoreUI(0);
             
+            // --- UI Setup based on Mode ---
+            updateScoreUI(0);
+            updateModeUI();
+
             // UI Resets
             safeSetText('search-input', '', 'value');
             const guessesContainer = document.getElementById('guesses-container');
             if (guessesContainer) guessesContainer.innerHTML = '<div id="empty-state" class="text-center text-gray-400 py-10"><i class="fas fa-arrow-up mb-2"></i><p>Make your first guess!</p></div>';
             
-            // Reset Win/Loss Screen styles
+            // Reset Win/Loss Screen
             const winScreen = document.getElementById('win-screen');
             if (winScreen) {
                 winScreen.classList.add('hidden');
                 winScreen.classList.remove('bg-red-50', 'border-red-200');
                 winScreen.classList.add('bg-green-100', 'border-green-500');
-                
-                const winTitle = winScreen.querySelector('h2');
-                if (winTitle) {
-                    winTitle.innerText = "🎉 You Found It!";
-                    winTitle.classList.remove('text-red-700');
-                    winTitle.classList.add('text-green-700');
-                }
+            }
+            
+            const winTitle = winScreen.querySelector('h2');
+            if (winTitle) {
+                winTitle.innerText = "🎉 You Found It!";
+                winTitle.classList.remove('text-red-700');
+                winTitle.classList.add('text-green-700');
             }
 
             const searchInput = document.getElementById('search-input');
             if (searchInput) searchInput.disabled = false;
             
-            // Reset Hint Buttons
+            // Enable Hints
             ['btn-hint-cat', 'btn-hint-exp', 'btn-hint-sum', 'btn-hint-img'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) {
@@ -237,11 +262,10 @@
                 }
             });
             
-            // Explicitly Reset Button Text
+            // Reset Buttons
             const imgBtn = document.getElementById('btn-hint-img');
-            if (imgBtn) imgBtn.innerHTML = '<span class="font-semibold"><i class="fas fa-image"></i> Reveal Image</span><span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium">-30 pts</span>';
+            if (imgBtn) imgBtn.innerHTML = '<span class="font-semibold"><i class="fas fa-image"></i> Reveal Image</span><span class="text-xs text-indigo-400 group-hover:text-indigo-600 font-medium bg-white px-1.5 rounded border border-indigo-100">-30 pts</span>';
 
-            // Reset Give Up Button
             const giveUpBtn = document.getElementById('give-up-btn');
             if (giveUpBtn) {
                 giveUpBtn.innerText = "I give up, show me the answer";
@@ -261,9 +285,14 @@
 
             toggleLoading(true);
 
-            // 1. Pick Random Article via API
+            // 1. Pick Article (Daily or Random)
             try {
-                const randomTitle = await getRandomArticle();
+                let randomTitle;
+                if (currentGameMode === 'daily') {
+                    randomTitle = await getDailyArticle();
+                } else {
+                    randomTitle = await getRandomArticle();
+                }
                 
                 // 2. Fetch Target Data
                 const data = await fetchWikiData(randomTitle);
@@ -295,10 +324,160 @@
             }
         }
 
+        function updateModeUI() {
+            const badge = document.getElementById('mode-badge');
+            const dateBadge = document.getElementById('date-badge');
+            const playNextBtn = document.getElementById('play-next-btn');
+            const dailyMsg = document.getElementById('daily-complete-msg');
+
+            if (currentGameMode === 'daily') {
+                // Daily Styling
+                badge.innerText = "Daily Puzzle";
+                badge.className = "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700 border border-yellow-200";
+                dateBadge.innerText = new Date().toLocaleDateString();
+                
+                // Win Screen shows "Play Infinite"
+                if(playNextBtn) playNextBtn.innerHTML = 'Play Infinite Mode <i class="fas fa-arrow-right ml-2"></i>';
+                if(dailyMsg) dailyMsg.classList.remove('hidden');
+            } else {
+                // Infinite Styling
+                badge.innerText = "Infinite Mode";
+                badge.className = "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-200";
+                dateBadge.innerText = "";
+
+                // Win Screen shows "Next Puzzle"
+                if(playNextBtn) playNextBtn.innerHTML = 'Next Random Puzzle <i class="fas fa-random ml-2"></i>';
+                if(dailyMsg) dailyMsg.classList.add('hidden');
+            }
+        }
+
+        // --- Daily Puzzle Logic (Seeded RNG) ---
+
+        async function getDailyArticle() {
+            // 1. Get standardized date string (YYYYMMDD) as seed
+            // Use local date to ensure "today" is correct for the user
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const seedDate = `${year}${month}${day}`;
+            const seedInt = parseInt(seedDate);
+
+            // 2. Fetch Top 1000 list from Yesterday (Static source)
+            // Use 2 days ago API call logic to ensure data is available, but use TODAY'S seed to pick
+            const yesterday = new Date(Date.now() - 2 * 86400000); 
+            const y_yyyy = yesterday.getFullYear();
+            const y_mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const y_dd = String(yesterday.getDate()).padStart(2, '0');
+            const fetchDateStr = `${y_yyyy}/${y_mm}/${y_dd}`;
+
+            const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${fetchDateStr}`;
+
+            try {
+                safeSetText('loading-text', "Loading Daily Puzzle...");
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Pageviews API error");
+                const data = await res.json();
+                const articles = data.items[0].articles;
+
+                // 3. Filter the list
+                const candidates = filterArticles(articles);
+                
+                if (candidates.length === 0) throw new Error("No candidates");
+
+                // 4. Deterministic Selection
+                // Use a seeded random function to pick one article for everyone
+                const rand = mulberry32(seedInt); // Initialize generator
+                
+                // Discard first few for better entropy
+                rand(); rand(); rand();
+
+                const dailyIndex = Math.floor(rand() * candidates.length);
+                return candidates[dailyIndex].article.replace(/_/g, ' ');
+
+            } catch (e) {
+                console.error("Daily fetch failed, fallback", e);
+                // Fallback for daily failure (e.g. API down) - Pick "Internet"
+                return "The Internet"; 
+            }
+        }
+
+        // Simple Seeded RNG (Mulberry32)
+        function mulberry32(a) {
+            return function() {
+              var t = a += 0x6D2B79F5;
+              t = Math.imul(t ^ t >>> 15, t | 1);
+              t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+              return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        // --- Common Filters ---
+        function filterArticles(articles) {
+            const datePattern = /^(January|February|March|April|May|June|July|August|September|October|November|December)_\d{1,2}$/;
+            const yearPattern = /^\d{4}$/;
+
+            return articles.filter(a => {
+                const t = a.article;
+                if (datePattern.test(t) || yearPattern.test(t)) return false;
+                if (t.includes(":")) return false; 
+                if (t.split("_").length > 4) return false; 
+
+                return t !== "Main_Page" &&
+                       !t.startsWith("Special:") &&
+                       !t.startsWith("Wikipedia:") &&
+                       !t.startsWith("File:") &&
+                       !t.startsWith("Portal:") &&
+                       !t.startsWith("User:") &&
+                       !t.startsWith("Help:") &&
+                       !t.startsWith("List_of") && 
+                       !t.includes("_(disambiguation)");
+            });
+        }
+
+        // --- Infinite Mode Logic (Random) ---
+
+        async function getRandomArticle() {
+            // Use 2 days ago for consistent data source
+            const yesterday = new Date(Date.now() - 2 * 86400000); 
+            const yyyy = yesterday.getFullYear();
+            const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const dd = String(yesterday.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}/${mm}/${dd}`;
+
+            const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${dateStr}`;
+
+            try {
+                safeSetText('loading-text', "Scanning for new puzzle...");
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Pageviews API error");
+                const data = await res.json();
+                
+                const candidates = filterArticles(data.items[0].articles);
+                
+                // Batch Select 10 Random Candidates
+                const batchSize = 10;
+                const batch = [];
+                for(let i=0; i<batchSize; i++) {
+                    const randomIdx = Math.floor(Math.random() * candidates.length);
+                    batch.push(candidates[randomIdx].article);
+                }
+
+                safeSetText('loading-text', "Checking notability...");
+                const bestCandidate = await getMostFamousCandidate(batch);
+                return bestCandidate.replace(/_/g, ' '); 
+
+            } catch (e) {
+                console.error("Infinite fetch failed", e);
+                return "The Internet"; 
+            }
+        }
+
+        // ... (Existing Helpers: getMostFamousCandidate, validateAndFixImage, etc.) ...
+        // Re-pasted below for completeness
+
         async function validateAndFixImage() {
             const btn3 = document.getElementById('btn-hint-img');
-            
-            // 1. Check if we have an image at all
             let validImageFound = false;
             
             if (targetImage) {
@@ -306,21 +485,18 @@
                     validImageFound = true;
                 } else {
                     console.log("Main image is spoiler, looking for alternatives...");
-                    targetImage = null; // Invalidate main image
+                    targetImage = null; 
                 }
             }
 
-            // 2. If no valid image yet, search for alternatives
             if (!validImageFound) {
                 const altImage = await fetchAlternativeImage(targetArticle);
                 if (altImage) {
                     targetImage = altImage;
                     validImageFound = true;
-                    console.log("Found alternative image:", targetImage);
                 }
             }
 
-            // 3. Update Button State
             if (!validImageFound && btn3) {
                 btn3.disabled = true;
                 btn3.innerHTML = '<span class="font-semibold"><i class="fas fa-image-slash"></i> No Image</span><span class="text-xs text-gray-400">Unavailable</span>';
@@ -330,19 +506,17 @@
 
         function isImageSpoiler(imageUrl) {
             if (!targetArticle) return true;
-            // Filter words > 6 characters to be more lenient
             const significantWords = targetArticle.toLowerCase().split(/[\s-]+/).filter(w => w.length > 6);
             const imageSrcLower = imageUrl.toLowerCase();
             return significantWords.some(word => imageSrcLower.includes(word));
         }
 
         async function fetchAlternativeImage(title) {
-            // Fetch list of all images on page
             const params = new URLSearchParams({
                 action: "query",
                 prop: "images",
                 titles: title,
-                imlimit: "50", // Check up to 50 images
+                imlimit: "50", 
                 format: "json",
                 origin: "*"
             });
@@ -356,23 +530,15 @@
 
                 if (!images || images.length === 0) return null;
 
-                // Filter Loop
                 for (let img of images) {
                     const fileName = img.title;
-                    
-                    // Filter out non-photos (svg, png often icons) if possible, but allow jpg/jpeg
-                    // Also filter out standard wiki icons
                     if (fileName.includes(".svg") || fileName.includes("Flag_") || fileName.includes("Edit-clear")) continue;
-                    
-                    // Check URL for this file
                     const url = await getImageUrl(fileName);
                     if (url && !isImageSpoiler(url)) {
-                        return url; // Found a good one!
+                        return url; 
                     }
                 }
-            } catch(e) {
-                console.error("Alt image search failed", e);
-            }
+            } catch(e) { console.error("Alt image search failed", e); }
             return null;
         }
 
@@ -390,91 +556,6 @@
             const pages = data.query.pages;
             const pageId = Object.keys(pages)[0];
             return pages[pageId].imageinfo ? pages[pageId].imageinfo[0].url : null;
-        }
-
-        // --- Core Logic ---
-
-        function updateScoreUI(change) {
-            currentScore += change;
-            safeSetText('score-display', currentScore);
-            
-            // Visual feedback
-            if (change !== 0) {
-                const colorClass = change > 0 ? 'text-green-600' : 'text-red-600';
-                const sign = change > 0 ? '+' : '';
-                
-                // Float animation
-                const floatContainer = document.getElementById('score-float-container');
-                if (floatContainer) {
-                    const floatEl = document.createElement('div');
-                    floatEl.className = `font-bold text-lg ${colorClass} score-change`;
-                    floatEl.innerText = `${sign}${change}`;
-                    floatContainer.appendChild(floatEl);
-                    setTimeout(() => floatEl.remove(), 1000);
-                }
-            }
-        }
-
-        async function getRandomArticle() {
-            // STRATEGY: Hybrid "Fame Check"
-            const yesterday = new Date(Date.now() - 2 * 86400000); 
-            const yyyy = yesterday.getFullYear();
-            const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
-            const dd = String(yesterday.getDate()).padStart(2, '0');
-            const dateStr = `${yyyy}/${mm}/${dd}`;
-
-            const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${dateStr}`;
-
-            try {
-                safeSetText('loading-text', "Scanning top charts for globally famous topics...");
-                
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("Pageviews API error");
-                
-                const data = await res.json();
-                const articles = data.items[0].articles;
-
-                const datePattern = /^(January|February|March|April|May|June|July|August|September|October|November|December)_\d{1,2}$/;
-                const yearPattern = /^\d{4}$/;
-
-                // 1. Initial Local Filter
-                const candidates = articles.filter(a => {
-                    const t = a.article;
-                    if (datePattern.test(t) || yearPattern.test(t)) return false;
-                    if (t.includes(":")) return false; // Filter Colons (Subtitles/Episodes)
-                    if (t.split("_").length > 4) return false; // Filter long titles (News headlines)
-
-                    return t !== "Main_Page" &&
-                           !t.startsWith("Special:") &&
-                           !t.startsWith("Wikipedia:") &&
-                           !t.startsWith("File:") &&
-                           !t.startsWith("Portal:") &&
-                           !t.startsWith("User:") &&
-                           !t.startsWith("Help:") &&
-                           !t.startsWith("List_of") && 
-                           !t.includes("_(disambiguation)");
-                });
-
-                if (candidates.length === 0) throw new Error("No candidates found");
-
-                // 2. Batch Select 10 Random Candidates
-                const batchSize = 10;
-                const batch = [];
-                for(let i=0; i<batchSize; i++) {
-                    const randomIdx = Math.floor(Math.random() * candidates.length);
-                    batch.push(candidates[randomIdx].article);
-                }
-
-                // 3. Fame Check (Language Count)
-                safeSetText('loading-text', "Verifying global fame (language check)...");
-                const bestCandidate = await getMostFamousCandidate(batch);
-                
-                return bestCandidate.replace(/_/g, ' '); 
-
-            } catch (e) {
-                console.error("Pageviews fetch failed, falling back...", e);
-                return "The Internet"; 
-            }
         }
 
         async function getMostFamousCandidate(titles) {
@@ -497,13 +578,26 @@
                     const countB = b.langlinks ? b.langlinks.length : 0;
                     return countB - countA;
                 });
-
-                console.log("Winner:", pages[0].title, "Languages:", pages[0].langlinks ? pages[0].langlinks.length : 0);
                 return pages[0].title;
+            } catch (e) { return titles[0]; }
+        }
 
-            } catch (e) {
-                console.error("Langlink check failed", e);
-                return titles[0]; 
+        // --- Core Game Functions ---
+
+        function updateScoreUI(change) {
+            currentScore += change;
+            safeSetText('score-display', currentScore);
+            if (change !== 0) {
+                const colorClass = change > 0 ? 'text-green-600' : 'text-red-600';
+                const sign = change > 0 ? '+' : '';
+                const floatContainer = document.getElementById('score-float-container');
+                if (floatContainer) {
+                    const floatEl = document.createElement('div');
+                    floatEl.className = `font-bold text-lg ${colorClass} score-change`;
+                    floatEl.innerText = `${sign}${change}`;
+                    floatContainer.appendChild(floatEl);
+                    setTimeout(() => floatEl.remove(), 1000);
+                }
             }
         }
 
@@ -526,11 +620,7 @@
                 }
 
                 const result = calculateSimilarity(data.title, data.links);
-                
-                const guessObj = {
-                    title: data.title,
-                    ...result
-                };
+                const guessObj = { title: data.title, ...result };
                 guesses.unshift(guessObj);
                 
                 if (result.type !== 'win') {
@@ -545,14 +635,11 @@
                 }
 
                 const searchInput = document.getElementById('search-input');
-                if (searchInput) {
-                    searchInput.value = '';
-                }
+                if (searchInput) searchInput.value = '';
                 const autoList = document.getElementById('autocomplete-list');
                 if (autoList) autoList.classList.add('hidden');
 
             } catch (e) {
-                console.error(e);
                 showToast("Error checking guess", "error");
             } finally {
                 toggleLoading(false);
@@ -563,7 +650,6 @@
             if (guessTitle.toLowerCase() === targetArticle.toLowerCase()) {
                 return { score: 100, message: "Correct!", color: "bg-green-500", type: 'win' };
             }
-
             const guessLinks = new Set(guessLinksArr);
             const targetLinksToGuess = targetLinks.has(guessTitle);
             const guessLinksToTarget = guessLinks.has(targetArticle);
@@ -574,28 +660,19 @@
 
             const intersection = new Set([...targetLinks].filter(x => guessLinks.has(x)));
             const union = new Set([...targetLinks, ...guessLinks]);
-            
             let jaccard = 0;
-            if (union.size > 0) {
-                jaccard = intersection.size / union.size;
-            }
-
+            if (union.size > 0) jaccard = intersection.size / union.size;
             let displayScore = Math.min(Math.round(jaccard * 1000), 70); 
-            
             let message = `${intersection.size} shared links`;
             let color = "bg-blue-500";
-
             if (intersection.size === 0) {
                 message = "No connection";
                 color = "bg-gray-400";
                 displayScore = 5;
             }
-
             return { score: displayScore, message: message, color: color, type: 'normal' };
         }
 
-        // --- Wikipedia API Helper ---
-        
         async function fetchWikiData(title) {
             const params = new URLSearchParams({
                 action: "query",
@@ -609,21 +686,15 @@
                 inprop: "url",         
                 origin: "*"
             });
-
             const res = await fetch(`${API_BASE}?${params.toString()}`);
             const data = await res.json();
-            
             const pages = data.query.pages;
             const pageId = Object.keys(pages)[0];
-            
             if (pageId === "-1") return null;
-
             const page = pages[pageId];
-            
             const fullText = page.extract || "";
             const introEnd = fullText.search(/==[^=]+==/);
             const summary = introEnd !== -1 ? fullText.substring(0, introEnd).trim() : fullText.substring(0, 500);
-
             return {
                 title: page.title,
                 links: page.links ? page.links.map(l => l.title) : [],
@@ -635,16 +706,12 @@
             };
         }
 
-        // --- Text Processing ---
-
         function processContextClue(fullText, title) {
             const lines = fullText.split('\n');
             let foundHeader = false;
             let contextParagraph = "";
-
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                
                 if (line.startsWith("==") && line.endsWith("==")) {
                     const headerText = line.replace(/=/g, '').trim().toLowerCase();
                     if (headerText.includes("etymology") || headerText.includes("name")) {
@@ -654,13 +721,11 @@
                     }
                     continue;
                 }
-                
                 if (foundHeader && line.length > 50) {
                     contextParagraph = line;
                     break;
                 }
             }
-
             if (!contextParagraph) {
                 const sentences = fullText.split('. ');
                 if (sentences.length > 1) {
@@ -669,13 +734,9 @@
                     contextParagraph = fullText.substring(0, 100) + "...";
                 }
             }
-
             let sentence = contextParagraph;
             const periodIndex = contextParagraph.indexOf('. ');
-            if (periodIndex !== -1) {
-                sentence = contextParagraph.substring(0, periodIndex + 1);
-            }
-
+            if (periodIndex !== -1) sentence = contextParagraph.substring(0, periodIndex + 1);
             return {
                 sentence: redactText(sentence, title),
                 full: redactText(contextParagraph, title)
@@ -684,36 +745,27 @@
 
         function redactText(text, title) {
             if (!text || !title) return text || "";
-
             let censored = text;
             const parenRegex = /\([^)]+\)/;
             const match = censored.match(parenRegex);
+            if (match && match.index < 150) censored = censored.replace(parenRegex, "(████)");
             
-            if (match && match.index < 150) {
-                censored = censored.replace(parenRegex, "(████)");
-            }
-
             const titleWords = title.split(/[\s-]+/); 
-            
             if (titleWords.length > 1) {
                 const acronym = titleWords.map(w => w.charAt(0)).join('');
                 if (acronym.length > 1) titleWords.push(acronym);
             }
-
             titleWords.sort((a, b) => b.length - a.length);
-
             titleWords.forEach(word => {
                 if (word.length > 2) {
                     let pattern = "";
                     const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    
                     if (word.length >= 5) {
                         const root = escapedWord.substring(0, 4);
                         pattern = `\\b${root}\\w*`;
                     } else {
                         pattern = `\\b${escapedWord}\\w*`;
                     }
-
                     const regex = new RegExp(pattern, "gi"); 
                     censored = censored.replace(regex, "█████");
                 }
@@ -721,25 +773,7 @@
             return censored;
         }
 
-        async function searchAutocomplete(term) {
-            if (term.length < 2) return [];
-            
-            const params = new URLSearchParams({
-                action: "opensearch",
-                search: term,
-                limit: "5",
-                namespace: "0",
-                format: "json",
-                origin: "*"
-            });
-
-            const res = await fetch(`${API_BASE}?${params.toString()}`);
-            const data = await res.json();
-            return data[1]; 
-        }
-
         // --- UI Rendering Helpers ---
-        // Helper to safely set innerText without crashing
         function safeSetText(id, text, prop = 'innerText') {
             const el = document.getElementById(id);
             if (el) el[prop] = text;
@@ -749,7 +783,6 @@
             const container = document.getElementById('guesses-container');
             const emptyState = document.getElementById('empty-state');
             if (emptyState) emptyState.remove();
-
             const div = document.createElement('div');
             div.className = "bg-white p-3 rounded-lg border border-gray-200 shadow-sm animate-pop flex items-center justify-between";
             div.innerHTML = `
@@ -780,34 +813,26 @@
 
         function revealHint(type, cost) {
             if (hintsUnlocked.has(type)) return;
-            
             try {
                 let success = false;
-
                 if (type === 'exp') {
-                    // Expand Clue
                     if (!targetContextData || !targetContextData.full) throw new Error("Context unavailable");
                     safeSetText('context-display', targetContextData.full);
                     success = true;
-                
                 } else if (type === 'sum') {
-                    // Summary
                     const display = document.getElementById('hint-display-sum');
                     if (display) {
                         renderRedactedSummary();
                         display.classList.remove('hidden');
                         success = true;
                     }
-
                 } else if (type === 'cat') {
-                    // Categories
                     const display = document.getElementById('hint-display-cat');
                     if (display) {
                         const cleanCats = targetCategories.filter(c => {
                             const lower = c.toLowerCase();
                             const titleLower = targetArticle.toLowerCase();
                             if (lower.includes(titleLower)) return false;
-                            
                             return !lower.includes("articles") && 
                                    !lower.includes("pages") && 
                                    !lower.includes("webarchive") && 
@@ -821,9 +846,7 @@
                                    !lower.includes("cleanup") &&       
                                    !lower.includes("template");        
                         });
-
                         const safeCats = cleanCats.map(c => redactText(c, targetArticle));
-
                         if (safeCats.length > 0) {
                             display.innerHTML = `<span class="block text-xs font-bold text-indigo-400 mb-1">CATEGORIES</span> ${safeCats.slice(0, 8).join(", ")}`;
                         } else {
@@ -832,9 +855,7 @@
                         display.classList.remove('hidden');
                         success = true;
                     }
-
                 } else if (type === 'img') {
-                    // Image
                     const display = document.getElementById('hint-display-img');
                     const img = document.getElementById('hint-image');
                     if (targetImage && display && img) {
@@ -843,13 +864,10 @@
                         success = true;
                     }
                 }
-
-                // Only charge if successful rendering happened
                 if (success) {
                     updateScoreUI(-cost);
                     hintsUnlocked.add(type);
                     safeSetText('hint-status', `${hintsUnlocked.size}/4 Extra Hints Used`);
-
                     const btn = document.getElementById(`btn-hint-${type}`);
                     if (btn) {
                         btn.disabled = true;
@@ -857,10 +875,7 @@
                         btn.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
                     }
                 }
-
-            } catch(e) {
-                console.error("Failed to reveal hint:", e);
-            }
+            } catch(e) { console.error("Failed to reveal hint:", e); }
         }
 
         function triggerWin() {
@@ -868,17 +883,13 @@
             safeSetText('reveal-title', targetArticle);
             safeSetText('win-stats', `Solved in ${guesses.length} guesses!`);
             safeSetText('final-score-display', `Final Score: ${currentScore}`);
-            
             const link = document.getElementById('wiki-link');
             if (link) link.href = targetUrl;
-            
             const winScreen = document.getElementById('win-screen');
             if (winScreen) winScreen.classList.remove('hidden');
-            
             const searchInput = document.getElementById('search-input');
             if (searchInput) searchInput.disabled = true;
             
-            // Reveal everything
             if(targetImage) {
                 const imgDisplay = document.getElementById('hint-display-img');
                 const img = document.getElementById('hint-image');
@@ -897,7 +908,6 @@
 
         function giveUp() {
             const btn = document.getElementById('give-up-btn');
-            
             if (giveUpClickCount === 0) {
                 giveUpClickCount++;
                 btn.innerText = "Are you sure? Click again to confirm.";
@@ -905,18 +915,13 @@
                 btn.classList.add('text-red-600', 'font-bold');
                 return;
             }
-
-            // Zero Score
             currentScore = 0;
             safeSetText('score-display', "0");
-
             triggerWin(); 
-            
             const winScreen = document.getElementById('win-screen');
             if (winScreen) {
                 winScreen.classList.remove('bg-green-100', 'border-green-500');
                 winScreen.classList.add('bg-red-50', 'border-red-200');
-                
                 const winTitle = winScreen.querySelector('h2');
                 if (winTitle) {
                     winTitle.innerText = "😢 Game Over";
@@ -924,13 +929,11 @@
                     winTitle.classList.add('text-red-700');
                 }
             }
-            
             const link = document.getElementById('wiki-link');
             if (link) {
                 link.classList.remove('text-green-700');
                 link.classList.add('text-red-700', 'hover:text-red-800');
             }
-            
             safeSetText('win-stats', "Better luck next time!");
             safeSetText('final-score-display', `Final Score: 0 (Gave Up)`);
         }
@@ -938,15 +941,11 @@
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            
             const bgClass = type === 'error' ? 'bg-red-500' : 'bg-indigo-600';
             const icon = type === 'error' ? '<i class="fas fa-exclamation-circle"></i>' : '<i class="fas fa-info-circle"></i>';
-            
             toast.className = `${bgClass} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium pointer-events-auto toast-enter`;
             toast.innerHTML = `${icon} <span>${message}</span>`;
-            
             container.appendChild(toast);
-
             setTimeout(() => {
                 toast.style.transition = 'all 0.3s ease-in';
                 toast.style.opacity = '0';
@@ -961,22 +960,17 @@
             else el.classList.add('hidden');
         }
 
-        // --- Event Listeners ---
-
         const searchInput = document.getElementById('search-input');
         const autoList = document.getElementById('autocomplete-list');
-
         let timeout = null;
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(timeout);
                 const term = e.target.value;
-                
                 if (term.length < 2) {
                     if (autoList) autoList.classList.add('hidden');
                     return;
                 }
-
                 timeout = setTimeout(async () => {
                     const results = await searchAutocomplete(term);
                     if (autoList) {
@@ -991,7 +985,6 @@
                     }
                 }, 300);
             });
-
             searchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && searchInput.value) {
                     handleGuess(searchInput.value);
@@ -999,13 +992,11 @@
                 }
             });
         }
-
         document.addEventListener('click', (e) => {
             if (searchInput && autoList && !searchInput.contains(e.target) && !autoList.contains(e.target)) {
                 autoList.classList.add('hidden');
             }
         });
-
         window.selectSuggestion = (title) => {
             const searchInput = document.getElementById('search-input');
             const autoList = document.getElementById('autocomplete-list');
@@ -1013,7 +1004,6 @@
             if (autoList) autoList.classList.add('hidden');
             handleGuess(title);
         };
-
     </script>
 </body>
 </html>
